@@ -1,41 +1,41 @@
+warnings off
 require mf/mf.f
 
-: >addr  ( n - a n )  s>d hex <# 2 cells for # next #> decimal ;
-: >hex   ( c - a n )  s>d hex <# # # #> decimal ;
-: >char  ( c - c )    dup 32 127 within if exit then drop [char] . ;
+: not  0= ;
+: fsize  ( a n - u )
+  r/o open-file throw dup file-size throw d>s swap close-file throw ;
 
 0 value /line
 variable off
 
-: .addr    ( a )    >addr type ;
-: .filler  ( n )    /line swap - 3 * spaces ;
-: .hexes   ( a n )  swap a! for c@+ >hex type space next ;
-: .chars   ( a n )  swap a! for c@+ >char emit next ;
-: .line    ( a n )
-  off @ .addr 2 spaces 2dup .hexes dup .filler 2 spaces .chars ;
-
+: h#     ( n )    # # ;
+: .off            off @ s>d <# cell for h# next #> type ;
+: align  ( n )    /line swap - 3 * spaces ;
+: h.     ( n )    s>d <# h# #> type space ;
+: bytes  ( a n )  swap a! for c@+ h. next ;
+: c.     ( c )    dup bl 127 within not if drop [char] . then emit ;
+: text   ( a n )  swap a! for c@+ c. next ;
+: line   ( a n )  .off 2 spaces 2dup bytes dup align 2 spaces text ;
 
 variable remaining
 0 value fd
 
-: /read       ( - n )  remaining @ /line min ;
-: -remaining  ( n )    negate remaining +! ;
+: size        ( - n )  remaining @ /line min ;
+: remaining-  ( n )    negate remaining +! ;
+: off+        ( n )    off +! ;
+: update      ( n )    dup remaining- off+ ;
 
-: open      ( a n )  r/o open-file throw to fd ;
-: position  ( n )    s>d fd reposition-file throw ;
-: close              fd close-file throw ;
-: read      ( - a n )  
-  here /read fd read-file throw
-  dup -remaining  dup off +!  here swap ;
+: open      ( a n )    r/o open-file throw to fd ;
+: position  ( n )      s>d fd reposition-file throw ;
+: close                fd close-file throw ;
+: read      ( a - n )  size fd read-file throw dup update ;
 
-: setup  ( a n start end line# )
+: setup  ( a n start end width )
   to /line  over - remaining !  push
-  open pop position  0 off ! ;
+  open pop position  0 off ! hex ;
 
-: (hdump)  ( a n start end #line )
-  setup cr begin read dup while .line cr repeat drop drop close ;
+: (hdump)  ( a n start end width )
+  setup begin here read dup while here swap line cr repeat drop close ;
 
-: fsize  ( a n - u )
-  r/o open-file throw dup file-size throw d>s swap close-file throw ;
-
-: hdump  ( a n )  2dup fsize 0 swap 16 (hdump) ;
+: hdumped  ( a n )  2dup fsize 0 swap 16 (hdump) ;
+: hdump  bl word count hdumped ;
